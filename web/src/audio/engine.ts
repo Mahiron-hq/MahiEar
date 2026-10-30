@@ -59,6 +59,7 @@ class AudioEngine {
   private volume = 1;
   private silentCheck: ReturnType<typeof setTimeout> | undefined;
   private seekPending = false;
+  private lastSeen = -1;
 
   private audio(): HTMLAudioElement {
     if (this.el) return this.el;
@@ -408,8 +409,13 @@ class AudioEngine {
   private onTime(): void {
     const el = this.el;
     if (!el) return;
+    const moved = el.currentTime !== this.lastSeen;
+    this.lastSeen = el.currentTime;
     if (this.resumeAt === 0) this.lastPos = el.currentTime;
-    if (this.status.value === 'loading' && !el.paused && el.readyState >= 3) this.status.value = 'playing';
+    if (this.status.value === 'loading' && this.wantPlay && !el.paused && (moved || el.readyState >= 3)) {
+      clearTimeout(this.stallTimer);
+      this.status.value = 'playing';
+    }
     this.hooks?.onTick();
   }
 
