@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use governor::{DefaultDirectRateLimiter, DefaultKeyedRateLimiter, Quota, RateLimiter};
 use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
@@ -94,21 +94,28 @@ pub fn router(state: AppState) -> Router {
         .route("/a/{file}", get(audio))
         .fallback_service(web)
         .layer(middleware::from_fn_with_state(state.clone(), throttle))
+        .layer(middleware::from_fn(resolve_client))
         .layer(middleware::from_fn(headers))
         .with_state(state)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClientIp(pub IpAddr);
+
+async fn resolve_client(mut req: Request, next: Next) -> Response {
+    let ip = match req.extensions().get::<ConnectInfo<SocketAddr>>() {
+        Some(ConnectInfo(peer)) => client_ip(*peer, req.headers()),
+        // unix socket: only the reverse proxy can connect
+        None => proxied_ip(req.headers()).map_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED), group),
+    };
+    req.extensions_mut().insert(ClientIp(ip));
+    next.run(req).await
+}
+
 async fn throttle(State(st): State<AppState>, req: Request, next: Next) -> Response {
-    let peer = req
-        .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .map(|c| c.0);
-    if let Some(peer) = peer
-        && st
-            .limits
-            .any
-            .check_key(&client_ip(peer, req.headers()))
-            .is_err()
+    let ip = req.extensions().get::<ClientIp>().map(|c| c.0);
+    if let Some(ip) = ip
+        && st.limits.any.check_key(&ip).is_err()
     {
         return (StatusCode::TOO_MANY_REQUESTS, [(header::RETRY_AFTER, "5")]).into_response();
     }
@@ -207,19 +214,25 @@ pub fn client_ip(peer: SocketAddr, headers: &HeaderMap) -> IpAddr {
         .ip()
         .to_canonical()
         .is_loopback()
-        .then(|| {
-            headers
-                .get("x-forwarded-for")?
-                .to_str()
-                .ok()?
-                .rsplit(',')
-                .next()?
-                .trim()
-                .parse::<IpAddr>()
-                .ok()
-        })
+        .then(|| proxied_ip(headers))
         .flatten();
-    match forwarded.unwrap_or(peer.ip()).to_canonical() {
+    group(forwarded.unwrap_or(peer.ip()))
+}
+
+fn proxied_ip(headers: &HeaderMap) -> Option<IpAddr> {
+    headers
+        .get("x-forwarded-for")?
+        .to_str()
+        .ok()?
+        .rsplit(',')
+        .next()?
+        .trim()
+        .parse::<IpAddr>()
+        .ok()
+}
+
+fn group(ip: IpAddr) -> IpAddr {
+    match ip.to_canonical() {
         IpAddr::V6(v6) => {
             let s = v6.segments();
             IpAddr::V6(Ipv6Addr::new(s[0], s[1], s[2], s[3] & 0xff00, 0, 0, 0, 0))
@@ -247,11 +260,9 @@ struct Ack {
 
 async fn events(
     State(st): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
+    Extension(ClientIp(ip)): Extension<ClientIp>,
     body: Result<Json<EventBatch>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    let ip = client_ip(peer, &headers);
     if st.limits.requests.check_key(&ip).is_err() {
         return (StatusCode::TOO_MANY_REQUESTS, [(header::RETRY_AFTER, "30")]).into_response();
     }
@@ -322,16 +333,10 @@ struct ClientLog {
 
 async fn client_log(
     State(st): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
+    Extension(ClientIp(ip)): Extension<ClientIp>,
     body: Result<Json<ClientLog>, axum::extract::rejection::JsonRejection>,
 ) -> StatusCode {
-    if st
-        .limits
-        .logs
-        .check_key(&client_ip(peer, &headers))
-        .is_err()
-    {
+    if st.limits.logs.check_key(&ip).is_err() {
         return StatusCode::TOO_MANY_REQUESTS;
     }
     let Ok(Json(log)) = body else {

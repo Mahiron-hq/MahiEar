@@ -19,7 +19,7 @@
 	request_body {
 		max_size 64KB
 	}
-	reverse_proxy 127.0.0.1:8080 {
+	reverse_proxy unix//run/mahiear/http.sock {
 		lb_try_duration 20s
 		lb_try_interval 250ms
 	}

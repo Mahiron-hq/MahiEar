@@ -95,10 +95,26 @@ async fn main() -> anyhow::Result<()> {
         web_dir: cfg.web_dir.clone(),
         limits,
     });
-    let listener = match listenfd::ListenFd::from_env()
-        .take_tcp_listener(0)
-        .context("inherited socket")?
-    {
+    let mut fds = listenfd::ListenFd::from_env();
+    let shutdown = cancel.clone();
+    let stop = async move {
+        wait_for_signal().await;
+        shutdown.cancel();
+    };
+    #[cfg(unix)]
+    if let Some(std_listener) = fds.take_unix_listener(0).context("inherited socket")? {
+        std_listener.set_nonblocking(true)?;
+        let listener = tokio::net::UnixListener::from_std(std_listener)?;
+        tracing::info!("listening on inherited unix socket");
+        axum::serve(listener, app.into_make_service())
+            .with_graceful_shutdown(stop)
+            .await
+            .context("server")?;
+        cancel.cancel();
+        while tasks.join_next().await.is_some() {}
+        return Ok(());
+    }
+    let listener = match fds.take_tcp_listener(0).context("inherited socket")? {
         Some(std_listener) => {
             std_listener.set_nonblocking(true)?;
             let l = tokio::net::TcpListener::from_std(std_listener)?;
@@ -113,15 +129,11 @@ async fn main() -> anyhow::Result<()> {
             l
         }
     };
-    let shutdown = cancel.clone();
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(async move {
-        wait_for_signal().await;
-        shutdown.cancel();
-    })
+    .with_graceful_shutdown(stop)
     .await
     .context("server")?;
 

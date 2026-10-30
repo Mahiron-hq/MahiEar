@@ -24,7 +24,7 @@ switch_to() {
 
 healthy() {
 	for _ in $(seq 1 30); do
-		curl -fsS -o /dev/null http://127.0.0.1:8080/api/health && return 0
+		curl -fsS -o /dev/null --unix-socket /run/mahiear/http.sock http://localhost/api/health && return 0
 		sleep 0.5
 	done
 	return 1

@@ -2,8 +2,11 @@
 Description=MahiEar listening socket
 
 [Socket]
-ListenStream=127.0.0.1:8080
-NoDelay=true
+ListenStream=/run/mahiear/http.sock
+SocketUser=mahiear
+SocketGroup=www-data
+SocketMode=0660
+DirectoryMode=0755
 Backlog=1024
 
 [Install]

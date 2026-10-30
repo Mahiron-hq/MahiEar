@@ -318,3 +318,30 @@ async fn replacing_the_set_archives_removed_tracks() {
         .expect("archived row");
     assert_eq!(archived, 1);
 }
+
+#[tokio::test]
+async fn requests_through_a_unix_socket_proxy_are_accepted() {
+    let f = fixture();
+    f.library.publish_now().await.expect("publish");
+    let track = f.state.current.load().tracks[0].id.clone();
+    let req = Request::post("/api/events")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-forwarded-for", "198.51.100.7")
+        .body(Body::from(
+            serde_json::json!({ "events": [
+                { "type": "play", "id": "af9619ff-8b86-d011-b42d-00cf4fc964ff", "track": track },
+            ]})
+            .to_string(),
+        ))
+        .expect("request");
+    let res = router(f.state.clone())
+        .oneshot(req)
+        .await
+        .expect("infallible");
+    assert_eq!(res.status(), StatusCode::OK);
+    let res = router(f.state.clone())
+        .oneshot(get("/api/health"))
+        .await
+        .expect("infallible");
+    assert_eq!(res.status(), StatusCode::OK);
+}
