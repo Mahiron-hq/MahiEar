@@ -15,7 +15,7 @@ import { initTabs, passive } from './lib/tabs';
 import { initPlaylist, resetPlaylist } from './playlist';
 import { leave, onBackground, resumeRun, run } from './prep';
 import { initServiceWorker } from './pwa';
-import { cat, initSettings, navigate, notice, savedScreen, screen, settings, toast } from './state';
+import { cat, followHistory, initSettings, navigate, notice, savedScreen, screen, settings, toast } from './state';
 import { App } from './ui/App';
 import { focusScreen, trackInputMode } from './ui/focus';
 
@@ -105,15 +105,19 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('popstate', (ev) => {
-  const target = (ev.state as { s?: string } | null)?.s;
-  const s = screen.value.name;
-  if (target === 'playlist' || target === 'settings' || target === 'stats' || target === 'selective') {
-    if (s === 'prep') leave();
-    navigate({ name: target }, true);
-    return;
-  }
-  if (s === 'prep') leave();
-  else if (s !== 'home') navigate({ name: 'home' }, true);
+  const st = ev.state as { s?: string; k?: string } | null;
+  const target = st?.s;
+  followHistory(target, () => {
+    const s = screen.value.name;
+    if (target === 'playlist' || target === 'settings' || target === 'stats' || target === 'selective') {
+      if (s === 'prep') leave();
+      navigate({ name: target });
+    } else if (target === 'prep' || target === 'finish') {
+      const kind: RunKind = st?.k === 'selective' ? 'selective' : 'full';
+      if (s !== target && !resumeRun(kind, true)) navigate({ name: 'home' });
+    } else if (s === 'prep') leave();
+    else if (s !== 'home') navigate({ name: 'home' });
+  });
 });
 
 const root = document.getElementById('app');

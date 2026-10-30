@@ -438,6 +438,12 @@ fieldset {
   white-space: nowrap;
 }
 
+@media (max-width: 379px) {
+  .wide-only {
+    display: none;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

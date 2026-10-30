@@ -100,7 +100,7 @@ export function Home() {
           ) : full ? (
             <>
               <Button variant="primary" size="lg" class="wide" onClick={() => resumeRun('full', true)}>
-                Продолжить подготовку{' '}
+                Продолжить<span class="wide-only"> подготовку</span>{' '}
                 <span class="nowrap">
                   · {full.pos + 1} из {full.order.length}
                 </span>

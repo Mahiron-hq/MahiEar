@@ -52,16 +52,37 @@ export function dismissNotice(): void {
 
 const SCREEN_KEY = 'mahiear.screen.v1';
 
+let aboveHome = false;
+let fromHistory = false;
+
 export function navigate(next: Screen, replace = false): void {
   const prev = screen.value;
   screen.value = next;
   save(SCREEN_KEY, next);
+  if (fromHistory) return;
+  const state = { s: next.name, k: 'kind' in next ? next.kind : undefined };
   try {
-    if (replace || next.name === 'home') history.replaceState({ s: next.name }, '');
-    else if (prev.name === 'home') history.pushState({ s: next.name }, '');
-    else history.replaceState({ s: next.name }, '');
+    if (next.name === 'home') {
+      if (aboveHome && !replace) {
+        aboveHome = false;
+        history.back();
+      } else history.replaceState(state, '');
+    } else if (prev.name === 'home' && !replace) {
+      history.pushState(state, '');
+      aboveHome = true;
+    } else history.replaceState(state, '');
   } catch {
     return;
+  }
+}
+
+export function followHistory(target: string | undefined, apply: () => void): void {
+  aboveHome = !!target && target !== 'home';
+  fromHistory = true;
+  try {
+    apply();
+  } finally {
+    fromHistory = false;
   }
 }
 
