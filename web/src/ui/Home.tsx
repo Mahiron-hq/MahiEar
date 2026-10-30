@@ -100,9 +100,11 @@ export function Home() {
           ) : full ? (
             <>
               <Button variant="primary" size="lg" class="wide" onClick={() => resumeRun('full', true)}>
-                Продолжить<span class="wide-only"> подготовку</span>{' '}
-                <span class="nowrap">
-                  · {full.pos + 1} из {full.order.length}
+                <span>
+                  Продолжить<span class="wide-only"> подготовку</span>{' '}
+                  <span class="nowrap">
+                    · {full.pos + 1} из {full.order.length}
+                  </span>
                 </span>
               </Button>
               <Button variant="ghost" onClick={() => void restart('full')}>

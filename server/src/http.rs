@@ -84,10 +84,26 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(CompressionLayer::new());
 
+    let index = state.web_dir.join("index.html");
+    let app_shell = tower::service_fn(move |req: Request| {
+        let index = index.clone();
+        async move {
+            let path = req.uri().path();
+            let last = path.rsplit('/').next().unwrap_or_default();
+            if last.contains('.') || path.starts_with("/api/") || path.starts_with("/a/") {
+                return Ok::<_, std::convert::Infallible>(StatusCode::NOT_FOUND.into_response());
+            }
+            match ServeFile::new(&index).oneshot(req).await {
+                Ok(res) => Ok(res.map(Body::new)),
+                Err(never) => match never {},
+            }
+        }
+    });
     let web = ServeDir::new(&state.web_dir)
         .precompressed_br()
         .precompressed_gzip()
-        .append_index_html_on_directories(true);
+        .append_index_html_on_directories(true)
+        .fallback(app_shell);
 
     Router::new()
         .merge(api)

@@ -345,3 +345,22 @@ async fn requests_through_a_unix_socket_proxy_are_accepted() {
         .expect("infallible");
     assert_eq!(res.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn unknown_pages_open_the_app_but_missing_files_do_not() {
+    let f = fixture();
+    std::fs::create_dir_all(&f.state.web_dir).expect("mkdir");
+    std::fs::write(
+        f.state.web_dir.join("index.html"),
+        "<!doctype html><title>app</title>",
+    )
+    .expect("write");
+    let (status, headers, body) = send(&f.state, get("/some/deep/link")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(String::from_utf8_lossy(&body).contains("app"));
+    assert_eq!(headers[header::CACHE_CONTROL], "no-cache");
+    for missing in ["/assets/gone-123.js", "/nope.png", "/api/unknown"] {
+        let (status, _, _) = send(&f.state, get(missing)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+    }
+}
