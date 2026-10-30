@@ -42,6 +42,7 @@ export async function syncOffline(cat: Catalog, enabled: boolean): Promise<void>
   try {
     if (!enabled) {
       await caches.delete(AUDIO_CACHE);
+      await caches.delete(TEMP_CACHE);
       offline.value = { state: 'off', done: 0, total };
       return;
     }

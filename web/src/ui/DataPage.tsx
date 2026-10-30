@@ -1,13 +1,11 @@
-import { offline } from '../lib/offline';
+import { AUDIO_CACHE, TEMP_CACHE } from '../lib/offline';
 import { wipeEverything } from '../lib/wipe';
-import { navigate, settings, toast, updateSettings } from '../state';
+import { navigate, toast, updateSettings } from '../state';
 import { Button, TopBar } from './common';
 import { confirmAsk } from './confirm';
 import { Footer, Link, SOURCE_URL } from './Footer';
 
 export function DataPage() {
-  const o = offline.value;
-  const hasAudio = settings.value.offline && o.done > 0;
 
   return (
     <div class="screen data-page">
@@ -43,9 +41,11 @@ export function DataPage() {
         </ul>
         <p>
           Учётных записей, постоянных идентификаторов, cookies и журнала посещений нет. Чтобы защитить сайт от перегрузки,
-          сервер несколько минут держит IP-адрес в оперативной памяти и никуда его не записывает. Сайт не подключает
-          сторонние счётчики, аналитику и рекламу и ничего не загружает с других сайтов. Раз в сутки администратор получает
-          сводку перечисленных счётчиков.
+          сервер несколько минут держит IP-адрес в оперативной памяти и не записывает его в журналы сайта. Исключение одно:
+          если не удалось даже установить защищённое соединение, веб-сервер может записать IP-адрес в общий журнал
+          технических ошибок; такие записи автоматически удаляются через 14 дней. Сайт не подключает сторонние счётчики,
+          аналитику и рекламу и ничего не загружает с других сайтов. Раз в сутки администратор получает сводку перечисленных
+          счётчиков.
         </p>
 
         <h2>Открытый код</h2>
@@ -72,15 +72,16 @@ export function DataPage() {
         </ul>
         <div class="row-actions">
           <Button
-            disabled={!hasAudio}
             onClick={async () => {
               const ok = await confirmAsk(
                 'Удалить сохранённые отрывки?',
-                'Аудиофайлы будут удалены с устройства, офлайн-режим выключится. Отрывки продолжат загружаться из интернета.',
+                'Все сохранённые на устройстве аудиофайлы будут удалены, офлайн-режим выключится. Отрывки продолжат загружаться из интернета.',
                 'Удалить',
               );
               if (ok) {
                 updateSettings({ offline: false });
+                if (typeof caches !== 'undefined')
+                  await Promise.all([caches.delete(AUDIO_CACHE), caches.delete(TEMP_CACHE)]).catch(() => undefined);
                 toast('Сохранённые отрывки удалены');
               }
             }}
