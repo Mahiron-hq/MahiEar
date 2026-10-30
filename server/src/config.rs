@@ -39,6 +39,7 @@ pub struct Config {
     pub backup_dir: PathBuf,
     pub ffmpeg: PathBuf,
     pub ffprobe: PathBuf,
+    pub public_url: Option<String>,
     pub scan_interval: Duration,
     pub telegram: Option<Telegram>,
     pub report_time: Time,
@@ -113,6 +114,13 @@ impl Config {
             web_dir: path("MAHIEAR_WEB_DIR", "web"),
             ffmpeg: path("MAHIEAR_FFMPEG", "ffmpeg"),
             ffprobe: path("MAHIEAR_FFPROBE", "ffprobe"),
+            public_url: match var("MAHIEAR_PUBLIC_URL") {
+                Some(u) if u.starts_with("https://") || u.starts_with("http://") => {
+                    Some(u.trim_end_matches('/').to_owned())
+                }
+                Some(_) => return Err(invalid("MAHIEAR_PUBLIC_URL", "must start with https://")),
+                None => None,
+            },
             data_dir,
             backup_dir,
             scan_interval,

@@ -13,12 +13,14 @@ import { setWritable, storageProblem } from './lib/storage';
 import { initStats, pruneStats } from './lib/stats';
 import { initTabs, passive } from './lib/tabs';
 import { initPlaylist, resetPlaylist } from './playlist';
-import { leave, onBackground, resumeRun, run } from './prep';
+import { onBackground, run } from './prep';
+import { installHistory, openInitialRoute } from './router';
 import { initServiceWorker } from './pwa';
-import { cat, followHistory, initSettings, navigate, notice, savedScreen, screen, settings, toast } from './state';
+import { cat, initSettings, notice, screen, settings, toast } from './state';
 import { App } from './ui/App';
 import { focusScreen, trackInputMode } from './ui/focus';
 
+(window as Window & { __mahiear?: boolean }).__mahiear = true;
 installGlobalHandlers();
 trackInputMode();
 
@@ -52,8 +54,6 @@ function checkRuns(next: Manifest): void {
   }
 }
 
-let restored = false;
-
 function onCatalog(prev: Manifest | null, next: Manifest): void {
   checkRuns(next);
   if (prev) {
@@ -61,13 +61,7 @@ function onCatalog(prev: Manifest | null, next: Manifest): void {
     resetPlaylist();
     if (prev.version !== next.version) toast('Набор отрывков обновлён');
   }
-  if (!restored) {
-    restored = true;
-    const s = savedScreen();
-    if (s && (s.name === 'prep' || s.name === 'finish')) {
-      if (!resumeRun(s.kind, false, true)) navigate({ name: 'home' }, true);
-    } else if (s && s.name !== 'home') navigate(s, true);
-  }
+  openInitialRoute();
 }
 
 effect(() => {
@@ -104,21 +98,7 @@ document.addEventListener('visibilitychange', () => {
   } else onBackground();
 });
 
-window.addEventListener('popstate', (ev) => {
-  const st = ev.state as { s?: string; k?: string } | null;
-  const target = st?.s;
-  followHistory(target, () => {
-    const s = screen.value.name;
-    if (target === 'playlist' || target === 'settings' || target === 'stats' || target === 'selective') {
-      if (s === 'prep') leave();
-      navigate({ name: target });
-    } else if (target === 'prep' || target === 'finish') {
-      const kind: RunKind = st?.k === 'selective' ? 'selective' : 'full';
-      if (s !== target && !resumeRun(kind, true)) navigate({ name: 'home' });
-    } else if (s === 'prep') leave();
-    else if (s !== 'home') navigate({ name: 'home' });
-  });
-});
+installHistory();
 
 const root = document.getElementById('app');
 if (root) {

@@ -1,20 +1,13 @@
 import { signal } from '@preact/signals';
 import { engine } from './audio/engine';
 import type { Catalog } from './lib/manifest';
-import type { RunKind } from './lib/runs';
+import { parseRoute, pathFor, titleFor, type Route } from './lib/routes';
 import { DEFAULTS, parseSettings, reconcile, type Settings } from './lib/settings';
 import { load, save } from './lib/storage';
 
-export type Screen =
-  | { name: 'home' }
-  | { name: 'prep'; kind: RunKind }
-  | { name: 'finish'; kind: RunKind }
-  | { name: 'selective' }
-  | { name: 'playlist' }
-  | { name: 'settings' }
-  | { name: 'stats' };
+export type Screen = Route;
 
-export const screen = signal<Screen>({ name: 'home' });
+export const screen = signal<Screen>(parseRoute(location.pathname));
 export const cat = signal<Catalog | null>(null);
 export const catalogState = signal<'loading' | 'ready' | 'error'>('loading');
 export const settings = signal<Settings>(DEFAULTS);
@@ -52,32 +45,33 @@ export function dismissNotice(): void {
 
 const SCREEN_KEY = 'mahiear.screen.v1';
 
-let aboveHome = false;
 let fromHistory = false;
+
+type HistoryState = { home?: boolean } | null;
 
 export function navigate(next: Screen, replace = false): void {
   const prev = screen.value;
   screen.value = next;
-  save(SCREEN_KEY, next);
+  if (next.name !== 'notfound') save(SCREEN_KEY, next);
+  document.title = titleFor(next);
   if (fromHistory) return;
-  const state = { s: next.name, k: 'kind' in next ? next.kind : undefined };
+  const path = pathFor(next);
+  const st = history.state as HistoryState;
   try {
     if (next.name === 'home') {
-      if (aboveHome && !replace) {
-        aboveHome = false;
-        history.back();
-      } else history.replaceState(state, '');
-    } else if (prev.name === 'home' && !replace) {
-      history.pushState(state, '');
-      aboveHome = true;
-    } else history.replaceState(state, '');
+      if (!replace && st?.home && prev.name !== 'home') history.back();
+      else history.replaceState({}, '', path);
+    } else if (!replace && prev.name === 'home' && location.pathname === '/') {
+      history.pushState({ home: true }, '', path);
+    } else if (location.pathname !== path || replace) {
+      history.replaceState({ home: st?.home ?? false }, '', path);
+    }
   } catch {
     return;
   }
 }
 
-export function followHistory(target: string | undefined, apply: () => void): void {
-  aboveHome = !!target && target !== 'home';
+export function followHistory(apply: () => void): void {
   fromHistory = true;
   try {
     apply();
@@ -92,8 +86,6 @@ export function savedScreen(): Screen | null {
     const r = raw as Record<string, unknown>;
     if ((r.name === 'prep' || r.name === 'finish') && (r.kind === 'full' || r.kind === 'selective'))
       return { name: r.name, kind: r.kind } as Screen;
-    if (r.name === 'playlist' || r.name === 'settings' || r.name === 'stats' || r.name === 'selective' || r.name === 'home')
-      return { name: r.name } as Screen;
     return null;
   });
   return l.status === 'ok' ? l.value : null;

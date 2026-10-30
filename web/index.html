@@ -2,9 +2,8 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>MahiEar</title>
-    <meta name="description" content="Подготовка к музыкальной викторине: узнавайте отрывки на слух." />
     <meta name="theme-color" content="#121315" />
     <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -15,10 +14,63 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <style>
+      html { height: 100%; background: #121315; color-scheme: dark; }
+      body { margin: 0; min-height: 100%; display: flex; flex-direction: column; }
+      #app:empty { display: none; }
+      body > noscript { display: flex; flex-direction: column; flex: 1 0 auto; }
+      .fallback { box-sizing: border-box; flex: 1 0 auto; width: 100%; display: flex; flex-direction: column; max-width: 640px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 20px max(16px, env(safe-area-inset-bottom)); color: #ececee; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      .fallback[hidden] { display: none; }
+      .fallback-mark { display: block; padding: 14px 0 0; color: #ececee; font-size: 18px; font-weight: 650; text-decoration: none; }
+      .fallback-main { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 40px 0; }
+      .fallback h1 { margin: 0 0 14px; font-size: 30px; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; }
+      .fallback p { margin: 0 0 12px; color: #a6a6ae; max-width: 46ch; }
+      .fallback h2 { margin: 22px 0 8px; color: #ececee; font-size: 16px; font-weight: 600; }
+      .fallback ul { margin: 0 0 12px; padding-left: 20px; color: #a6a6ae; }
+      .fallback li + li { margin-top: 6px; }
+      .fallback b { color: #ececee; font-weight: 550; }
+      .fallback-button { align-self: flex-start; margin-top: 10px; display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 12px; background: #c9a76a; color: #1a150c; font-weight: 600; text-decoration: none; }
+      .fallback-foot { padding-top: 16px; color: #85858e; font-size: 12px; }
+      @media (min-width: 720px) { .fallback h1 { font-size: 38px; } }
+    </style>
   </head>
   <body>
     <div id="app"></div>
-    <noscript>Для работы MahiEar нужен JavaScript.</noscript>
+    <noscript>
+      <div class="fallback">
+        <a class="fallback-mark" href="/">MahiEar</a>
+        <main class="fallback-main">
+          <h1>Для работы MahiEar нужен JavaScript</h1>
+          <p>MahiEar помогает готовиться к музыкальной викторине: отрывки звучат в случайном порядке, а вы учитесь узнавать их на слух.</p>
+          <p>JavaScript нужен, чтобы воспроизводить отрывки, сохранять прогресс и работать без интернета. Сейчас он выключен в этом браузере.</p>
+          <h2>Как включить</h2>
+          <ul>
+            <li><b>Chrome, Edge, Яндекс Браузер, Samsung Internet:</b> настройки, раздел о конфиденциальности или сайтах, пункт JavaScript, разрешить.</li>
+            <li><b>Firefox:</b> откройте about:config и включите параметр javascript.enabled.</li>
+            <li><b>Safari на iPhone и iPad:</b> Настройки, Safari, Дополнения, включите JavaScript.</li>
+            <li><b>Safari на Mac:</b> Safari, Настройки, Безопасность, включите JavaScript.</li>
+          </ul>
+          <p>После этого обновите страницу.</p>
+          <a class="fallback-button" href="/">Обновить страницу</a>
+        </main>
+        <p class="fallback-foot">Copyright 2026 Lev Burmistrov (Mahiron-hq)</p>
+      </div>
+    </noscript>
+    <div id="unsupported" class="fallback" hidden>
+      <a class="fallback-mark" href="/">MahiEar</a>
+      <main class="fallback-main">
+        <h1>Не удалось запустить MahiEar</h1>
+        <p>Сначала попробуйте обновить страницу. Если сообщение не исчезло, этот браузер, скорее всего, устарел и не поддерживает нужные возможности.</p>
+        <h2>Подойдут актуальные версии</h2>
+        <ul>
+          <li>Safari на iPhone и iPad с iOS 15.4 и новее, Safari на Mac;</li>
+          <li>Chrome, Edge, Firefox, Яндекс Браузер и Samsung Internet.</li>
+        </ul>
+        <a class="fallback-button" href="/">Обновить страницу</a>
+      </main>
+      <p class="fallback-foot">Copyright 2026 Lev Burmistrov (Mahiron-hq)</p>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script defer src="/boot-check.js"></script>
   </body>
 </html>

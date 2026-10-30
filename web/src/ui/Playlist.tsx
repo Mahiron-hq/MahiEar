@@ -21,6 +21,7 @@ import type { Track } from '../lib/manifest';
 import * as pl from '../playlist';
 import { cat, navigate, settings, updateSettings } from '../state';
 import { ICON, IconButton, Seekbar, TopBar } from './common';
+import { Footer } from './Footer';
 import { KeysButton } from './Keys';
 
 interface Group {
@@ -110,7 +111,7 @@ export function Playlist() {
                       <span class="pl-work-count tabular">{w.tracks.length}</span>
                       <ChevronDown {...ICON} size={18} class={`chev ${open ? 'is-open' : ''}`} />
                     </button>
-                    {open && (
+                    <div class={`collapse ${open ? 'is-open' : ''}`} inert={!open || undefined}>
                       <ul class="pl-tracks">
                         {w.tracks.map((t) => {
                           const isCur = t.id === cur;
@@ -132,12 +133,13 @@ export function Playlist() {
                           );
                         })}
                       </ul>
-                    )}
+                    </div>
                   </div>
                 );
               })}
             </section>
           ))}
+          <Footer />
         </div>
 
         <div class="player" role="region" aria-label="Плеер">

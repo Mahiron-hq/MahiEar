@@ -3,6 +3,7 @@ import { times } from '../lib/format';
 import { mostMissed, stats } from '../lib/stats';
 import { cat, navigate } from '../state';
 import { Button, TopBar } from './common';
+import { Footer } from './Footer';
 import { startSelective } from './Home';
 
 export function Stats() {
@@ -58,6 +59,7 @@ export function Stats() {
           </Button>
         </div>
       )}
+      <Footer />
     </div>
   );
 }

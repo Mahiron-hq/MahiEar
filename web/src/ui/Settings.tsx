@@ -5,6 +5,7 @@ import { onSettingsChanged } from '../prep';
 import { maxDuration, navigate, resetSettings, settings, toast, updateSettings } from '../state';
 import { Button, Stepper, Switch, TopBar } from './common';
 import { confirmAsk } from './confirm';
+import { Footer, Link } from './Footer';
 
 const MODES: { value: AutoAdvance; label: string }[] = [
   { value: 'off', label: 'Выключен' },
@@ -149,11 +150,10 @@ export function SettingsScreen() {
           </Button>
         </div>
         <p class="row-hint privacy">
-          Сайт работает без регистрации и не собирает сведений о пользователях. Ответы и личная статистика хранятся только в
-          этом браузере. На сервер передаются только обезличенные счётчики: сколько раз звучал каждый отрывок и сколько полных
-          прогонов завершено.
+          Что сайт хранит на устройстве и на сервере и как это удалить: <Link to={{ name: 'data' }}>О данных</Link>.
         </p>
       </section>
+      <Footer />
     </div>
   );
 }

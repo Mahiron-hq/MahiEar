@@ -15,9 +15,10 @@ import { offline } from '../lib/offline';
 import type { RunKind } from '../lib/runs';
 import { stats } from '../lib/stats';
 import { resumeRun, startRun, unfinished } from '../prep';
-import { cat, catalogState, navigate } from '../state';
+import { cat, catalogState } from '../state';
 import { refresh } from '../lib/catalogLoader';
 import { Button, ICON } from './common';
+import { Footer, Link } from './Footer';
 import { confirmAsk } from './confirm';
 
 export function startFull(): void {
@@ -120,14 +121,14 @@ export function Home() {
       </section>
 
       <nav class="menu" aria-label="Разделы">
-        <button type="button" class="menu-item" disabled={!c} onClick={() => navigate({ name: 'selective' })}>
+        <Link to={{ name: 'selective' }} class="menu-item" disabled={!c}>
           <ListChecks {...ICON} />
           <span class="menu-text">
             <span class="menu-label">Выборочная подготовка</span>
             <span class="menu-hint">Только выбранные композиторы и произведения</span>
           </span>
           <ChevronRight {...ICON} />
-        </button>
+        </Link>
         {sel && (
           <button type="button" class="menu-item is-sub" onClick={() => resumeRun('selective', true)}>
             <RotateCcw {...ICON} size={18} />
@@ -143,15 +144,15 @@ export function Home() {
             <ChevronRight {...ICON} />
           </button>
         )}
-        <button type="button" class="menu-item" disabled={!c} onClick={() => navigate({ name: 'playlist' })}>
+        <Link to={{ name: 'playlist' }} class="menu-item" disabled={!c}>
           <ListMusic {...ICON} />
           <span class="menu-text">
             <span class="menu-label">Плейлист</span>
             <span class="menu-hint">Все отрывки с названиями</span>
           </span>
           <ChevronRight {...ICON} />
-        </button>
-        <button type="button" class="menu-item" onClick={() => navigate({ name: 'stats' })}>
+        </Link>
+        <Link to={{ name: 'stats' }} class="menu-item">
           <ChartColumn {...ICON} />
           <span class="menu-text">
             <span class="menu-label">Статистика</span>
@@ -160,15 +161,16 @@ export function Home() {
             </span>
           </span>
           <ChevronRight {...ICON} />
-        </button>
-        <button type="button" class="menu-item" onClick={() => navigate({ name: 'settings' })}>
+        </Link>
+        <Link to={{ name: 'settings' }} class="menu-item">
           <Settings {...ICON} />
           <span class="menu-text">
             <span class="menu-label">Настройки</span>
           </span>
           <ChevronRight {...ICON} />
-        </button>
+        </Link>
       </nav>
+      <Footer />
     </div>
   );
 }

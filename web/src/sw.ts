@@ -9,6 +9,9 @@ const ASSETS = __ASSETS__;
 const SHELL = `mahiear-shell-${VERSION}`;
 const AUDIO_CACHES = ['mahiear-audio-v1', 'mahiear-audio-temp-v1'];
 const AUDIO = /^\/a\/[0-9a-f]{24}\.mp3$/;
+// keep in sync with lib/routes.ts
+const APP_ROUTE =
+  /^\/(?:|index\.html|prep|prep\/selective|prep\/result|prep\/selective\/result|select|playlist|playlist\/[0-9a-f]{24}|settings|stats|data)\/?$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -42,11 +45,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (req.mode === 'navigate') {
-    event.respondWith(shell('/index.html', req));
+    event.respondWith(APP_ROUTE.test(url.pathname) ? shell('/index.html', req) : unknownPage(req));
     return;
   }
   event.respondWith(shell(url.pathname, req));
 });
+
+async function unknownPage(req: Request): Promise<Response> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(req, { signal: ctrl.signal });
+    clearTimeout(t);
+    return res;
+  } catch {
+    const cache = await caches.open(SHELL);
+    return (await cache.match('/index.html')) ?? new Response('Нет соединения', { status: 503 });
+  }
+}
 
 async function shell(path: string, req: Request): Promise<Response> {
   const cache = await caches.open(SHELL);

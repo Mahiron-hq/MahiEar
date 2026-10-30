@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /prep
+Disallow: /settings
+Disallow: /stats
+Disallow: /api/
+Disallow: /a/
+Disallow: /errors/

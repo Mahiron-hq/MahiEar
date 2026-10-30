@@ -92,6 +92,7 @@ fn fixture() -> Fixture {
         current,
         audio_dir: library.audio_dir(),
         web_dir: dir.path().join("web"),
+        public_url: Some(Arc::from("https://ear.example")),
         limits: Arc::new(Limits::default()),
     };
     Fixture {
@@ -346,21 +347,127 @@ async fn requests_through_a_unix_socket_proxy_are_accepted() {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
-#[tokio::test]
-async fn unknown_pages_open_the_app_but_missing_files_do_not() {
-    let f = fixture();
-    std::fs::create_dir_all(&f.state.web_dir).expect("mkdir");
+fn web_fixture(f: &Fixture) {
+    let errors = f.state.web_dir.join("errors");
+    std::fs::create_dir_all(&errors).expect("mkdir");
     std::fs::write(
         f.state.web_dir.join("index.html"),
-        "<!doctype html><title>app</title>",
+        "<!doctype html><html><head><title>MahiEar</title><style>.x{}</style></head><body>shell</body></html>",
     )
     .expect("write");
-    let (status, headers, body) = send(&f.state, get("/some/deep/link")).await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(String::from_utf8_lossy(&body).contains("app"));
-    assert_eq!(headers[header::CACHE_CONTROL], "no-cache");
-    for missing in ["/assets/gone-123.js", "/nope.png", "/api/unknown"] {
-        let (status, _, _) = send(&f.state, get(missing)).await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+    for code in [400, 403, 404, 429, 500, 503] {
+        std::fs::write(
+            errors.join(format!("{code}.html")),
+            format!("<p>page {code}</p>"),
+        )
+        .expect("write");
     }
+}
+
+fn html(uri: &str) -> Request<Body> {
+    Request::get(uri)
+        .header(header::ACCEPT, "text/html")
+        .body(Body::empty())
+        .expect("request")
+}
+
+#[tokio::test]
+async fn app_routes_get_200_and_unknown_addresses_get_404() {
+    let f = fixture();
+    web_fixture(&f);
+    for ok in [
+        "/",
+        "/prep",
+        "/prep/selective/",
+        "/select",
+        "/playlist",
+        "/playlist/0123456789abcdef01234567",
+        "/data",
+    ] {
+        let (status, headers, body) = send(&f.state, html(ok)).await;
+        assert_eq!(status, StatusCode::OK, "{ok}");
+        assert!(String::from_utf8_lossy(&body).contains("shell"), "{ok}");
+        assert_eq!(headers[header::CACHE_CONTROL], "no-cache");
+    }
+    for unknown in ["/wdsf", "/prep/123", "/playlist/abc", "/some/deep/link"] {
+        let (status, _, body) = send(&f.state, html(unknown)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{unknown}");
+        assert!(
+            String::from_utf8_lossy(&body).contains("shell"),
+            "{unknown} renders the app page"
+        );
+    }
+    for missing in ["/assets/gone-123.js", "/nope.png", "/errors/999.html"] {
+        let (status, _, body) = send(&f.state, get(missing)).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+        assert!(
+            String::from_utf8_lossy(&body).contains("page 404"),
+            "{missing} is not the main page"
+        );
+    }
+    let (status, _, body) = send(&f.state, get("/api/unknown")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(!String::from_utf8_lossy(&body).contains("shell"));
+}
+
+#[tokio::test]
+async fn browser_errors_get_styled_pages_with_real_codes() {
+    let f = fixture();
+    web_fixture(&f);
+    let req = Request::post("/settings")
+        .header(header::ACCEPT, "text/html")
+        .body(Body::empty())
+        .expect("req");
+    let (status, headers, body) = send(&f.state, req).await;
+    assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
+    assert!(String::from_utf8_lossy(&body).contains("page 400"));
+    assert!(
+        headers[header::CONTENT_TYPE]
+            .to_str()
+            .expect("ascii")
+            .starts_with("text/html")
+    );
+}
+
+#[tokio::test]
+async fn link_previews_are_in_the_html_and_never_name_excerpts() {
+    let f = fixture();
+    web_fixture(&f);
+    f.library.publish_now().await.expect("publish");
+    let (status, headers, body) = send(&f.state, html("/playlist")).await;
+    assert_eq!(status, StatusCode::OK);
+    let page = String::from_utf8_lossy(&body);
+    for needle in [
+        r#"property="og:title" content="Плейлист · MahiEar""#,
+        r#"property="og:url" content="https://ear.example/playlist""#,
+        r#"property="og:image" content="https://ear.example/og-image.png""#,
+        r#"name="twitter:card" content="summary_large_image""#,
+        r#"rel="canonical" href="https://ear.example/playlist""#,
+    ] {
+        assert!(page.contains(needle), "{needle}");
+    }
+    let csp = headers[header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .expect("ascii");
+    assert!(
+        csp.contains("'sha256-"),
+        "inline style allowed by hash: {csp}"
+    );
+    assert!(!csp.contains("unsafe-inline"));
+
+    for p in ["/prep", "/prep/selective", "/prep/result"] {
+        let (_, headers, body) = send(&f.state, html(p)).await;
+        let page = String::from_utf8_lossy(&body);
+        for t in f.state.current.load().tracks.iter() {
+            assert!(!page.contains(&t.work), "{p} leaks a title");
+            assert!(!page.contains(&t.id), "{p} leaks an id");
+        }
+        assert!(page.contains("noindex"));
+        assert_eq!(headers["x-robots-tag"], "noindex");
+    }
+
+    let (status, headers, body) = send(&f.state, html("/wdsf")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(headers["x-robots-tag"], "noindex");
+    assert!(String::from_utf8_lossy(&body).contains("Страница не найдена"));
 }

@@ -6,7 +6,7 @@ import { audioUrl } from './lib/manifest';
 import { warm } from './lib/offline';
 import { shuffle as shuffled } from './lib/random';
 import { load, save } from './lib/storage';
-import { cat } from './state';
+import { cat, navigate, screen } from './state';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -69,6 +69,7 @@ export function playTrack(id: string): void {
     return;
   }
   current.value = id;
+  if (screen.value.name === 'playlist') navigate({ name: 'playlist', track: id }, true);
   clock.reset();
   counted = false;
   engine.load({
@@ -101,6 +102,10 @@ function tick(): void {
     counted = true;
     enqueue({ type: 'play', track: t.id });
   }
+}
+
+export function select(id: string): void {
+  if (cat.value?.byId.has(id) && !(engine.owner.value === 'playlist' && engine.playing)) current.value = id;
 }
 
 export function toggle(): void {

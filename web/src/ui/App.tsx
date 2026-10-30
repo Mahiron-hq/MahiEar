@@ -4,6 +4,9 @@ import { dismissNotice, navigate, notices, screen, toasts } from '../state';
 import { leave } from '../prep';
 import { Boundary, Button, Dialog } from './common';
 import { ConfirmHost } from './confirm';
+import { DataNotice } from './DataNotice';
+import { DataPage } from './DataPage';
+import { NotFound } from './NotFound';
 import { Finish } from './Finish';
 import { Home } from './Home';
 import { KeysHelp, onKeyDown } from './Keys';
@@ -28,6 +31,10 @@ function Current() {
       return <SettingsScreen />;
     case 'stats':
       return <Stats />;
+    case 'data':
+      return <DataPage />;
+    case 'notfound':
+      return <NotFound />;
     default:
       return <Home />;
   }
@@ -53,6 +60,8 @@ export function App() {
           <Current />
         </Boundary>
       </main>
+
+      <DataNotice />
 
       <div class="toasts" role="status" aria-live="polite">
         {toasts.value.map((t) => (

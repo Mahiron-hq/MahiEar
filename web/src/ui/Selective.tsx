@@ -3,6 +3,7 @@ import { excerpts } from '../lib/format';
 import { load, save } from '../lib/storage';
 import { cat, navigate } from '../state';
 import { Button, TopBar } from './common';
+import { Footer } from './Footer';
 import { startSelective } from './Home';
 
 const KEY = 'mahiear.selection.v1';
@@ -109,6 +110,7 @@ export function Selective() {
           {ids.length === 0 ? 'Ничего не выбрано' : `Начать · ${excerpts(ids.length)}`}
         </Button>
       </div>
+      <Footer />
     </div>
   );
 }

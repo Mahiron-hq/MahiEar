@@ -42,6 +42,7 @@
 }
 
 html {
+  height: 100%;
   background: var(--bg);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -49,8 +50,9 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
@@ -119,10 +121,28 @@ fieldset {
   font-size: 13px;
 }
 
+#app {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .app {
-  min-height: 100vh;
-  min-height: 100dvh;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
   padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
+}
+
+body:has(.app.is-playlist) {
+  height: 100%;
+}
+
+body:has(.app.is-playlist) #app,
+.app.is-playlist {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .boundary {
@@ -130,13 +150,67 @@ fieldset {
 }
 
 .screen {
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 640px;
-  min-height: calc(100dvh - var(--safe-top));
   margin: 0 auto;
-  padding: 0 20px calc(20px + var(--safe-bottom));
+  padding: 0 20px calc(12px + var(--safe-bottom));
+  animation: screen-in 220ms var(--ease) both;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: auto;
+  padding: 20px 0 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.dock + .site-footer,
+.finish-actions + .site-footer {
+  margin-top: 0;
+}
+
+.footer-link {
+  color: var(--text-3);
+  text-underline-offset: 3px;
+}
+
+.footer-link:hover {
+  color: var(--text-2);
+}
+
+a {
+  color: var(--accent);
+}
+
+a.menu-item,
+a.wordmark,
+a.btn {
+  text-decoration: none;
+}
+
+a.is-disabled {
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 .empty {
@@ -1168,20 +1242,32 @@ input[type='range']::-moz-range-thumb {
 }
 
 
+.screen.playlist {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
 .pl-layout {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .pl-list {
-  flex: 1;
-  padding-bottom: calc(232px + var(--safe-bottom));
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -20px;
+  padding: 0 20px;
 }
 
 .search {
   position: sticky;
-  top: var(--safe-top);
+  top: 0;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -1323,14 +1409,18 @@ input[type='range']::-moz-range-thumb {
 }
 
 .player {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: none;
   z-index: 3;
-  padding: 12px max(20px, var(--safe-right)) calc(10px + var(--safe-bottom)) max(20px, var(--safe-left));
+  margin: 0 -20px;
+  padding: 12px 20px calc(10px + var(--safe-bottom));
   background: var(--surface-1);
   border-top: 1px solid var(--line);
+}
+
+@media (max-height: 560px) {
+  .playlist:has(.search input:focus) .player {
+    display: none;
+  }
 }
 
 .player > * {
@@ -1542,6 +1632,186 @@ kbd {
 }
 
 
+.collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms var(--ease),
+    opacity 160ms ease;
+}
+
+.collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.collapse.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.hidden-title {
+  animation: fade-in 200ms ease both;
+}
+
+.nav-forward {
+  animation: fade-in 160ms ease both;
+}
+
+.selfcheck {
+  transition:
+    opacity 180ms ease,
+    visibility 0s;
+}
+
+.selfcheck.is-reserved {
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    visibility 0s linear 120ms;
+}
+
+.chip,
+.menu-item,
+.pl-track,
+.pl-work-head,
+.segment {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 80ms ease;
+}
+
+.chip:active,
+.pl-track:active,
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.menu-item:active {
+  background: var(--surface-1);
+}
+
+.dialog[open] .dialog-body {
+  animation: dialog-in 180ms var(--ease) both;
+}
+
+.dialog[open]::backdrop {
+  animation: fade-in 180ms ease both;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.data-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + var(--safe-bottom));
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(calc(100% - 32px), 520px);
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  transform: translateX(-50%);
+  animation: notice-in 260ms var(--ease) both;
+}
+
+.app.is-playlist ~ .data-notice {
+  bottom: calc(196px + var(--safe-bottom));
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
+.data-notice-text {
+  flex: 1;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.prose {
+  padding-bottom: 8px;
+  color: var(--text-2);
+  font-size: 15px;
+  max-width: 64ch;
+}
+
+.prose-title {
+  margin: 8px 0 12px;
+  color: var(--text);
+  font-size: clamp(24px, 6vw, 32px);
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.prose h2 {
+  margin: 28px 0 8px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.prose p + p {
+  margin-top: 10px;
+}
+
+.prose ul {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 8px 0 10px;
+}
+
+.prose li + li {
+  margin-top: 6px;
+}
+
+.error-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 40px 0;
+}
+
+.error-code {
+  color: var(--text-3);
+  font-size: 15px;
+}
+
+.error-title {
+  font-size: clamp(26px, 7vw, 38px);
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.error-text {
+  color: var(--text-2);
+  max-width: 42ch;
+}
+
+.error-body .btn {
+  margin-top: 20px;
+}
+
 @media (min-width: 720px) {
   .screen {
     padding-left: 32px;
@@ -1554,6 +1824,10 @@ kbd {
 }
 
 @media (min-width: 960px) {
+  .app.is-playlist ~ .data-notice {
+    bottom: calc(16px + var(--safe-bottom));
+  }
+
   .screen.home {
     max-width: 1040px;
     display: grid;
@@ -1588,17 +1862,18 @@ kbd {
   .pl-layout {
     display: grid;
     grid-template-columns: 1fr 380px;
+    grid-template-rows: minmax(0, 1fr);
     gap: 48px;
-    align-items: start;
   }
 
   .pl-list {
-    padding-bottom: 32px;
+    margin: 0;
+    padding: 0 8px 0 0;
   }
 
   .player {
-    position: sticky;
-    top: calc(var(--safe-top) + 16px);
+    align-self: start;
+    margin: 0 0 24px;
     padding: 24px;
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);

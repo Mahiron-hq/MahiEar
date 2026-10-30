@@ -93,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
         current,
         audio_dir: library.audio_dir(),
         web_dir: cfg.web_dir.clone(),
+        public_url: cfg.public_url.clone().map(Arc::from),
         limits,
     });
     let mut fds = listenfd::ListenFd::from_env();

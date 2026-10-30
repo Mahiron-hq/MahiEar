@@ -45,12 +45,12 @@ export function unfinished(kind: RunKind): Run | null {
   return l.status === 'ok' && !l.value.finished ? l.value : null;
 }
 
-export function startRun(kind: RunKind, ids: readonly string[], label: string): void {
+export function startRun(kind: RunKind, ids: readonly string[], label: string, autoplay = true, replace = false): void {
   const c = catalogOrThrow();
   const r = createRun(c, kind, ids, label);
   persist(r);
-  navigate({ name: 'prep', kind });
-  enter(0, true);
+  navigate({ name: 'prep', kind }, replace);
+  enter(0, autoplay);
 }
 
 export function resumeRun(kind: RunKind, autoplay: boolean, replace = false): boolean {
@@ -244,16 +244,14 @@ function finish(): void {
   }
   persist(done);
   engine.stop('prep');
-  document.title = 'MahiEar';
   navigate({ name: 'finish', kind: r.kind }, true);
 }
 
-export function leave(): void {
+export function leave(goHome = true): void {
   clearTimeout(timer);
   clearInterval(uiTimer);
   if (engine.owner.value === 'prep') engine.pause();
-  document.title = 'MahiEar';
-  navigate({ name: 'home' });
+  if (goHome) navigate({ name: 'home' });
 }
 
 export function closeFinished(kind: RunKind): void {

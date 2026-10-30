@@ -5,4 +5,5 @@ pub mod http;
 pub mod library;
 pub mod media;
 pub mod notify;
+pub mod pages;
 pub mod report;

@@ -8,6 +8,7 @@ license = "CC-BY-NC-SA-4.0"
 anyhow = "1.0.104"
 arc-swap = "1.9.3"
 axum = "0.8.9"
+base64 = "0.23.1"
 governor = "0.10.4"
 hex = "0.4.3"
 jiff = "0.2.38"
@@ -21,7 +22,7 @@ thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["full"] }
 tokio-util = "0.7.20"
 tower = "0.5.3"
-tower-http = { version = "0.7.1", features = ["fs", "compression-br", "compression-gzip", "set-header", "limit", "trace"] }
+tower-http = { version = "0.7.1", features = ["fs", "compression-br", "compression-gzip", "set-header", "limit", "trace", "catch-panic"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 unicode-normalization = "0.1.26"

@@ -6,6 +6,7 @@ import { closeFinished, run, unfinished } from '../prep';
 import { cat, navigate } from '../state';
 import { Button } from './common';
 import { confirmAsk } from './confirm';
+import { Footer } from './Footer';
 import { startFull, startSelective } from './Home';
 
 export function Finish({ kind }: { kind: RunKind }) {
@@ -116,6 +117,7 @@ export function Finish({ kind }: { kind: RunKind }) {
           В главное меню
         </Button>
       </div>
+      <Footer />
     </div>
   );
 }

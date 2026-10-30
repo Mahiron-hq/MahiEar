@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from 'preact/hooks';
 import { engine } from '../audio/engine';
 import { keyboardMode } from './focus';
 import { answer, back, currentTrack, elapsed, leave, next, retryCurrent, reveal, revealed, run, skip } from '../prep';
-import { settings } from '../state';
+import { catalogState, settings } from '../state';
 import { Button, ICON, IconButton, Seekbar, TopBar } from './common';
 import { KeysButton } from './Keys';
 
@@ -23,7 +23,7 @@ export function Prep() {
     return (
       <div class="screen">
         <TopBar onBack={leave} />
-        <p class="empty">Прогон не найден.</p>
+        {catalogState.value !== 'loading' && <p class="empty">Прогон не найден.</p>}
       </div>
     );
   }

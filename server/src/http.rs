@@ -15,12 +15,15 @@ use axum::{Extension, Json, Router};
 use governor::{DefaultDirectRateLimiter, DefaultKeyedRateLimiter, Quota, RateLimiter};
 use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
+use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::compression::CompressionLayer;
+use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Predicate};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::catalog::{Manifest, is_audio_id};
 use crate::db::{self, Db, Event, EventKind};
 use crate::library::unix_now;
+use crate::pages;
 
 const MAX_EVENTS_PER_BATCH: usize = 200;
 const MAX_BODY: usize = 32 * 1024;
@@ -72,6 +75,7 @@ pub struct AppState {
     pub current: Arc<ArcSwap<Manifest>>,
     pub audio_dir: PathBuf,
     pub web_dir: PathBuf,
+    pub public_url: Option<Arc<str>>,
     pub limits: Arc<Limits>,
 }
 
@@ -81,38 +85,199 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", post(events))
         .route("/api/log", post(client_log))
         .route("/api/health", get(|| async { "ok" }))
-        .layer(DefaultBodyLimit::max(MAX_BODY))
-        .layer(CompressionLayer::new());
+        .layer(DefaultBodyLimit::max(MAX_BODY));
 
-    let index = state.web_dir.join("index.html");
+    let shell_state = state.clone();
     let app_shell = tower::service_fn(move |req: Request| {
-        let index = index.clone();
+        let st = shell_state.clone();
         async move {
-            let path = req.uri().path();
-            let last = path.rsplit('/').next().unwrap_or_default();
-            if last.contains('.') || path.starts_with("/api/") || path.starts_with("/a/") {
-                return Ok::<_, std::convert::Infallible>(StatusCode::NOT_FOUND.into_response());
+            let path = req.uri().path().to_owned();
+            if !is_app_route(&path) && looks_like_file(&path) {
+                return Ok::<_, std::convert::Infallible>(
+                    error_page(&st.web_dir, StatusCode::NOT_FOUND).await,
+                );
             }
-            match ServeFile::new(&index).oneshot(req).await {
-                Ok(res) => Ok(res.map(Body::new)),
-                Err(never) => match never {},
-            }
+            Ok(app_page(&st, &path, req.headers()).await)
         }
     });
     let web = ServeDir::new(&state.web_dir)
         .precompressed_br()
         .precompressed_gzip()
-        .append_index_html_on_directories(true)
+        .append_index_html_on_directories(false)
         .fallback(app_shell);
 
     Router::new()
         .merge(api)
+        .route("/", get(index_page))
+        .route("/index.html", get(index_page))
         .route("/a/{file}", get(audio))
         .fallback_service(web)
         .layer(middleware::from_fn_with_state(state.clone(), throttle))
         .layer(middleware::from_fn(resolve_client))
+        .layer(CatchPanicLayer::custom(
+            |_: Box<dyn std::any::Any + Send>| {
+                tracing::error!("request handler panicked");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            },
+        ))
+        .layer(middleware::from_fn_with_state(state.clone(), html_errors))
+        .layer(
+            CompressionLayer::new().compress_when(
+                DefaultPredicate::new()
+                    .and(NotForContentType::const_new("audio/"))
+                    .and(NotForContentType::const_new("font/")),
+            ),
+        )
         .layer(middleware::from_fn(headers))
         .with_state(state)
+}
+
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'{STYLES}; img-src 'self' data:; \
+     font-src 'self'; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; connect-src 'self'; \
+     frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'";
+
+async fn index_page(State(st): State<AppState>, req: Request) -> Response {
+    let path = req.uri().path().to_owned();
+    app_page(&st, &path, req.headers()).await
+}
+
+fn public_base(st: &AppState, headers: &HeaderMap) -> String {
+    if let Some(u) = &st.public_url {
+        return u.to_string();
+    }
+    let host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .filter(|h| {
+            h.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'))
+        })
+        .unwrap_or("localhost");
+    format!("https://{host}")
+}
+
+async fn app_page(st: &AppState, path: &str, headers: &HeaderMap) -> Response {
+    let shell = match tokio::fs::read_to_string(st.web_dir.join("index.html")).await {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(error = %e, "app shell missing");
+            return error_page(&st.web_dir, StatusCode::SERVICE_UNAVAILABLE).await;
+        }
+    };
+    let meta = pages::meta_for(path);
+    let html = pages::render(&shell, &meta, &public_base(st, headers));
+    let styles: String = pages::inline_style_hashes(&html)
+        .into_iter()
+        .map(|h| format!(" {h}"))
+        .collect();
+    let status = if meta.found {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    };
+    let mut res = (
+        status,
+        [
+            (header::CONTENT_TYPE, "text/html; charset=utf-8".to_owned()),
+            (header::CACHE_CONTROL, "no-cache".to_owned()),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                CSP.replace("{STYLES}", &styles),
+            ),
+        ],
+        html,
+    )
+        .into_response();
+    if !meta.indexable {
+        res.headers_mut()
+            .insert("x-robots-tag", HeaderValue::from_static("noindex"));
+    }
+    res
+}
+
+pub fn is_app_route(path: &str) -> bool {
+    let p = if path.len() > 1 {
+        path.strip_suffix('/').unwrap_or(path)
+    } else {
+        path
+    };
+    matches!(
+        p,
+        "/" | "/index.html"
+            | "/prep"
+            | "/prep/selective"
+            | "/prep/result"
+            | "/prep/selective/result"
+            | "/select"
+            | "/playlist"
+            | "/settings"
+            | "/stats"
+            | "/data"
+    ) || p.strip_prefix("/playlist/").is_some_and(is_audio_id)
+}
+
+fn looks_like_file(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .is_some_and(|last| last.contains('.'))
+        || ["/assets/", "/a/", "/api/", "/errors/"]
+            .iter()
+            .any(|p| path.starts_with(p))
+}
+
+fn error_file(status: StatusCode) -> u16 {
+    match status.as_u16() {
+        403 => 403,
+        404 | 410 => 404,
+        429 => 429,
+        502..=504 => 503,
+        500..=599 => 500,
+        _ => 400,
+    }
+}
+
+async fn error_page(web_dir: &std::path::Path, status: StatusCode) -> Response {
+    let file = web_dir
+        .join("errors")
+        .join(format!("{}.html", error_file(status)));
+    match tokio::fs::read(&file).await {
+        Ok(html) => (
+            status,
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (header::CACHE_CONTROL, "no-store"),
+                (header::HeaderName::from_static("x-robots-tag"), "noindex"),
+            ],
+            html,
+        )
+            .into_response(),
+        Err(_) => (status, status.canonical_reason().unwrap_or("Error")).into_response(),
+    }
+}
+
+async fn html_errors(State(st): State<AppState>, req: Request, next: Next) -> Response {
+    let wants_html = req
+        .headers()
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|a| a.contains("text/html"));
+    let path = req.uri().path().to_owned();
+    let res = next.run(req).await;
+    let status = res.status();
+    let empty = axum::body::HttpBody::size_hint(res.body()).exact() == Some(0);
+    if !wants_html
+        || !empty
+        || status.as_u16() < 400
+        || path.starts_with("/api/")
+        || path.starts_with("/a/")
+    {
+        return res;
+    }
+    let mut page = error_page(&st.web_dir, status).await;
+    if let Some(v) = res.headers().get(header::RETRY_AFTER) {
+        page.headers_mut().insert(header::RETRY_AFTER, v.clone());
+    }
+    page
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -142,14 +307,12 @@ async fn headers(req: Request, next: Next) -> Response {
     let path = req.uri().path().to_owned();
     let mut res = next.run(req).await;
     let h = res.headers_mut();
-    h.insert(
-        header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; \
-             media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; connect-src 'self'; \
-             frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'",
-        ),
-    );
+    if !h.contains_key(header::CONTENT_SECURITY_POLICY) {
+        let csp = CSP.replace("{STYLES}", "");
+        if let Ok(v) = HeaderValue::from_str(&csp) {
+            h.insert(header::CONTENT_SECURITY_POLICY, v);
+        }
+    }
     h.insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
