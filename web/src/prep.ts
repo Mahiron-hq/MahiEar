@@ -53,7 +53,7 @@ export function startRun(kind: RunKind, ids: readonly string[], label: string): 
   enter(0, true);
 }
 
-export function resumeRun(kind: RunKind, autoplay: boolean): boolean {
+export function resumeRun(kind: RunKind, autoplay: boolean, replace = false): boolean {
   const l = loadRun(kind);
   if (l.status !== 'ok') return false;
   run.value = l.value;
@@ -61,7 +61,7 @@ export function resumeRun(kind: RunKind, autoplay: boolean): boolean {
     navigate({ name: 'finish', kind }, true);
     return true;
   }
-  navigate({ name: 'prep', kind });
+  navigate({ name: 'prep', kind }, replace);
   enter(l.value.pos, autoplay);
   return true;
 }

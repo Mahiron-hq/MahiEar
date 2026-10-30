@@ -65,7 +65,7 @@ function onCatalog(prev: Manifest | null, next: Manifest): void {
     restored = true;
     const s = savedScreen();
     if (s && (s.name === 'prep' || s.name === 'finish')) {
-      if (!resumeRun(s.kind, false)) navigate({ name: 'home' }, true);
+      if (!resumeRun(s.kind, false, true)) navigate({ name: 'home' }, true);
     } else if (s && s.name !== 'home') navigate(s, true);
   }
 }
