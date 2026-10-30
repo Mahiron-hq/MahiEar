@@ -294,12 +294,16 @@ class AudioEngine {
     const target = 10 ** (db / 20) * this.volume;
     if (this.graph === 'webaudio' && this.gainNode && this.ctx) {
       const g = this.gainNode.gain;
-      const now = this.ctx.currentTime;
-      g.cancelScheduledValues(now);
-      if (immediate || this.ctx.state !== 'running') g.setValueAtTime(target, now);
-      else {
-        g.setValueAtTime(g.value, now);
-        g.setTargetAtTime(target, now, 0.02);
+      try {
+        const now = this.ctx.currentTime;
+        g.cancelScheduledValues(now);
+        if (immediate || this.ctx.state !== 'running') g.setValueAtTime(target, now);
+        else {
+          g.setValueAtTime(g.value, now);
+          g.setTargetAtTime(target, now, 0.02);
+        }
+      } catch {
+        g.value = target;
       }
       if (this.el) this.el.volume = 1;
     } else if (this.el) {
