@@ -63,8 +63,18 @@ pub fn meta_for(path: &str) -> PageMeta {
             "/playlist",
             true,
         ),
-        "/settings" => page("Настройки · MahiEar", SITE_DESCRIPTION, "/settings", false),
-        "/stats" => page("Статистика · MahiEar", SITE_DESCRIPTION, "/stats", false),
+        "/settings" => page(
+            "Настройки · MahiEar",
+            "Задержка показа названия, автопереход, выравнивание громкости, работа в фоне и без интернета.",
+            "/settings",
+            false,
+        ),
+        "/stats" => page(
+            "Статистика · MahiEar",
+            "Личная статистика подготовки: пройденные прогоны и отрывки, которые чаще всего не удаётся узнать.",
+            "/stats",
+            false,
+        ),
         "/data" => page(
             "О данных · MahiEar",
             "Что MahiEar хранит на устройстве и на сервере и как удалить эти данные.",

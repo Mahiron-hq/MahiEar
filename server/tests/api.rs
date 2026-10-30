@@ -381,7 +381,6 @@ async fn app_routes_get_200_and_unknown_addresses_get_404() {
         "/prep/selective/",
         "/select",
         "/playlist",
-        "/playlist/0123456789abcdef01234567",
         "/data",
     ] {
         let (status, headers, body) = send(&f.state, html(ok)).await;
@@ -389,7 +388,13 @@ async fn app_routes_get_200_and_unknown_addresses_get_404() {
         assert!(String::from_utf8_lossy(&body).contains("shell"), "{ok}");
         assert_eq!(headers[header::CACHE_CONTROL], "no-cache");
     }
-    for unknown in ["/wdsf", "/prep/123", "/playlist/abc", "/some/deep/link"] {
+    for unknown in [
+        "/wdsf",
+        "/prep/123",
+        "/playlist/abc",
+        "/playlist/0123456789abcdef01234567",
+        "/some/deep/link",
+    ] {
         let (status, _, body) = send(&f.state, html(unknown)).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{unknown}");
         assert!(

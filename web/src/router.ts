@@ -2,7 +2,7 @@ import { engine } from './audio/engine';
 import { parseRoute, type Route } from './lib/routes';
 import { select } from './playlist';
 import { leave, resumeRun, run, startRun, unfinished } from './prep';
-import { cat, followHistory, navigate, savedScreen, screen, toast } from './state';
+import { cat, followHistory, navigate, savedScreen, screen } from './state';
 
 export function openRoute(r: Route, replace = false): void {
   const c = cat.value;
@@ -25,8 +25,7 @@ export function openRoute(r: Route, replace = false): void {
       return;
     case 'playlist':
       if (r.track && c && !c.byId.has(r.track)) {
-        toast('Этого отрывка больше нет в наборе');
-        navigate({ name: 'playlist' }, true);
+        navigate({ name: 'notfound' }, true);
         return;
       }
       navigate(r, replace);

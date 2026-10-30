@@ -164,7 +164,11 @@ async fn app_page(st: &AppState, path: &str, headers: &HeaderMap) -> Response {
             return error_page(&st.web_dir, StatusCode::SERVICE_UNAVAILABLE).await;
         }
     };
-    let meta = pages::meta_for(path);
+    let unknown_track = path
+        .trim_end_matches('/')
+        .strip_prefix("/playlist/")
+        .is_some_and(|id| !st.current.load().contains(id));
+    let meta = pages::meta_for(if unknown_track { "/missing" } else { path });
     let html = pages::render(&shell, &meta, &public_base(st, headers));
     let styles: String = pages::inline_style_hashes(&html)
         .into_iter()
