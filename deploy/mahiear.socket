@@ -1,0 +1,10 @@
+[Unit]
+Description=MahiEar listening socket
+
+[Socket]
+ListenStream=127.0.0.1:8080
+NoDelay=true
+Backlog=1024
+
+[Install]
+WantedBy=sockets.target

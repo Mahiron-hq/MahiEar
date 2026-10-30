@@ -95,10 +95,24 @@ async fn main() -> anyhow::Result<()> {
         web_dir: cfg.web_dir.clone(),
         limits,
     });
-    let listener = tokio::net::TcpListener::bind(cfg.listen)
-        .await
-        .with_context(|| format!("binding {}", cfg.listen))?;
-    tracing::info!(addr = %cfg.listen, "listening");
+    let listener = match listenfd::ListenFd::from_env()
+        .take_tcp_listener(0)
+        .context("inherited socket")?
+    {
+        Some(std_listener) => {
+            std_listener.set_nonblocking(true)?;
+            let l = tokio::net::TcpListener::from_std(std_listener)?;
+            tracing::info!(addr = ?l.local_addr().ok(), "listening on inherited socket");
+            l
+        }
+        None => {
+            let l = tokio::net::TcpListener::bind(cfg.listen)
+                .await
+                .with_context(|| format!("binding {}", cfg.listen))?;
+            tracing::info!(addr = %cfg.listen, "listening");
+            l
+        }
+    };
     let shutdown = cancel.clone();
     axum::serve(
         listener,

@@ -2,6 +2,8 @@
 Description=MahiEar
 After=network-online.target
 Wants=network-online.target
+Requires=mahiear.socket
+After=mahiear.socket
 StartLimitIntervalSec=0
 
 [Service]
