@@ -746,7 +746,7 @@ a.is-disabled {
 
 .dock-simple {
   position: sticky;
-  bottom: 0;
+  bottom: var(--notice-space, 0px);
   padding: 16px 0 calc(4px);
   background: var(--bg);
 }
