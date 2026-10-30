@@ -1651,6 +1651,11 @@ kbd {
   opacity: 1;
 }
 
+.collapse:not(.is-open) > * {
+  visibility: hidden;
+  transition: visibility 0s linear 220ms;
+}
+
 .hidden-title {
   animation: fade-in 200ms ease both;
 }
@@ -1908,8 +1913,32 @@ kbd {
 
 @media (orientation: landscape) and (max-height: 500px) {
   .stage {
-    min-height: 160px;
-    padding: 8px 0;
+    flex: 1 1 auto;
+    min-height: 96px;
+    padding: 4px 0;
+  }
+
+  .topbar {
+    min-height: 44px;
+  }
+
+  .selfcheck {
+    min-height: 44px;
+    margin-bottom: 4px;
+  }
+
+  .transport {
+    min-height: 60px;
+    margin-top: 4px;
+  }
+
+  .play-btn {
+    width: 52px;
+    height: 52px;
+  }
+
+  .hidden-title {
+    gap: 10px;
   }
 
   .hero {
