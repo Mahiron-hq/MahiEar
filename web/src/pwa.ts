@@ -7,8 +7,8 @@ let registration: ServiceWorkerRegistration | null = null;
 let reloading = false;
 
 function safe(): boolean {
-  const s = screen.value.name;
-  return (s === 'home' || s === 'settings' || s === 'stats') && !engine.playing && engine.status.value !== 'loading';
+  if (engine.playing || engine.status.value === 'loading') return false;
+  return screen.value.name !== 'prep' || performance.now() < 15_000;
 }
 
 function applyIfSafe(): void {

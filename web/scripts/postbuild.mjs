@@ -98,6 +98,7 @@ const files = walk(dist).map((p) => '/' + relative(dist, p).split(sep).join('/')
 const precache = files.filter(
   (f) =>
     f !== '/sw.js' &&
+    !f.startsWith('/errors/') &&
     !f.startsWith('/og-image.') &&
     f !== '/robots.txt' &&
     !f.endsWith('.br') &&

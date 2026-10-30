@@ -16,7 +16,18 @@ const APP_ROUTE =
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(SHELL).then(async (cache) => {
-      await cache.addAll(ASSETS.map((a) => new Request(a, { cache: 'reload' })));
+      const required = (a: string) => a === '/index.html' || /^\/assets\/.+\.(js|css)$/.test(a);
+      await Promise.all(
+        ASSETS.map(async (a) => {
+          try {
+            const res = await fetch(new Request(a, { cache: 'reload' }));
+            if (!res.ok) throw new Error(`${a}: ${res.status}`);
+            await cache.put(a, res);
+          } catch (e) {
+            if (required(a)) throw e;
+          }
+        }),
+      );
     }),
   );
 });
